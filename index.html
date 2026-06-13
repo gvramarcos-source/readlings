@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Critter Academy — Sight Word Reading Game</title>
-<meta name="description" content="A gentle sight-word reading game for early readers. Read words, grow your critter, and watch it evolve!">
+<title>Readlings — Sight Word Reading Game</title>
+<meta name="description" content="A gentle sight-word reading game for early readers. Read words, grow your Readling, and watch it evolve!">
 
 <!-- PWA / install -->
 <link rel="manifest" href="manifest.json">
@@ -14,12 +14,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Critter Academy">
+<meta name="apple-mobile-web-app-title" content="Readlings">
 
 <!-- Social share preview -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Critter Academy">
-<meta property="og:description" content="A gentle sight-word reading game. Read words, grow your critter, and watch it evolve!">
+<meta property="og:title" content="Readlings">
+<meta property="og:description" content="A gentle sight-word reading game. Read words, grow your Readling, and watch it evolve!">
 <meta property="og:image" content="og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -294,8 +294,8 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
 
 <!-- ════════ TITLE ════════ -->
 <div id="title-screen">
-  <h1>✨ Critter Academy ✨</h1>
-  <p class="subtitle">Read words, grow your Critter, and evolve!</p>
+  <h1>✨ Readlings ✨</h1>
+  <p class="subtitle">Read words, grow your Readling, and evolve!</p>
   <div id="title-preview" style="display:flex;justify-content:center;margin:18px 0 22px;"></div>
   <div class="level-row">
     <button class="level-pill" data-level="tiny"  onclick="setLevel('tiny')">Tiny words</button>
@@ -304,12 +304,12 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
   </div>
   <button class="btn btn-start" onclick="startGame()">🌟 Let's Play! 🌟</button>
   <div class="title-stats" id="titleStats"></div>
-  <button class="btn btn-dex" onclick="openDex()">📖 My Critters</button>
+  <button class="btn btn-dex" onclick="openDex()">📖 My Readlings</button>
 </div>
 
 <!-- ════════ CRITTER COLLECTION ════════ -->
 <div id="dex-screen" class="hidden">
-  <h1>📖 My Critters</h1>
+  <h1>📖 My Readlings</h1>
   <p class="subtitle" id="dexCount"></p>
   <div class="dex-grid" id="dexGrid"></div>
   <button class="btn btn-again" onclick="closeDex()">⬅️ Back</button>
@@ -317,7 +317,7 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
 
 <!-- ════════ GAME ════════ -->
 <div id="game-screen" class="hidden">
-  <div class="badge" id="badge">⭐ Critter</div>
+  <div class="badge" id="badge">⭐ Readling</div>
 
   <div class="prog-wrap"><div class="prog-fill" id="prog" style="width:0%"></div></div>
 
@@ -858,7 +858,7 @@ function openDex() {
     g.appendChild(d);
   });
   document.getElementById('dexCount').textContent =
-    n === CREATURES.length ? 'You found them ALL! 🏆' : `${n} of ${CREATURES.length} critters evolved`;
+    n === CREATURES.length ? 'You found them ALL! 🏆' : `${n} of ${CREATURES.length} readlings evolved`;
 }
 function closeDex() {
   document.getElementById('dex-screen').classList.add('hidden');

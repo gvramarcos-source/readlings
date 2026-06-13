@@ -1,4 +1,4 @@
-# 🐾 Critter Academy
+# 🐾 Readlings
 
 A gentle, gamified **sight-word reading game** for early readers (ages ~4–6).
 A word pops up, the child reads it aloud, and a grown-up taps **Got it!** or **Try again** —
@@ -23,7 +23,7 @@ Double-click the file, or drag it into a browser tab. That's it.
 - **3 difficulty levels:** Tiny words (2-letter), Short words (3-letter), Mix it up.
 - **🔊 Tap-to-hear** — reads the current word aloud using the device voice.
 - **Progress that sticks** — stars earned and critters evolved are saved on-device.
-- **My Critters** collection screen — locked silhouettes until you earn each one.
+- **My Readlings** collection screen — locked silhouettes until you earn each one.
 - **Happy sound effects** and per-action animations (eat, pet, train, nap, love).
 - **Installable PWA** — add to home screen, works offline.
 
@@ -31,11 +31,11 @@ Double-click the file, or drag it into a browser tab. That's it.
 
 The site is plain static files, so any static host works. For GitHub Pages:
 
-1. Create a new repository on github.com (e.g. `critter-academy`).
+1. Create a new repository on github.com (e.g. `readlings`).
 2. Push this folder to it (see the deploy notes your co-founder set up).
 3. In the repo: **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
    pick `main` / `/ (root)`, save.
-4. Your app goes live at `https://<your-username>.github.io/critter-academy/`.
+4. Your app goes live at `https://<your-username>.github.io/readlings/`.
 
 Alternative one-step host: drag this folder onto **app.netlify.com/drop** for an instant URL.
 

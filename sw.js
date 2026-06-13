@@ -1,6 +1,6 @@
-// Critter Academy service worker — offline support via stale-while-revalidate.
+// Readlings service worker — offline support via stale-while-revalidate.
 // Bump CACHE when you ship changes so clients refresh.
-const CACHE = 'critter-academy-v1';
+const CACHE = 'readlings-v1';
 const ASSETS = [
   './',
   './index.html',

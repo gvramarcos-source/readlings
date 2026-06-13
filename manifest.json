@@ -1,7 +1,7 @@
 {
-  "name": "Critter Academy",
-  "short_name": "Critters",
-  "description": "A gentle sight-word reading game. Read words, grow your critter, and watch it evolve!",
+  "name": "Readlings",
+  "short_name": "Readlings",
+  "description": "A gentle sight-word reading game. Read words, grow your Readling, and watch it evolve!",
   "id": "./",
   "start_url": "./",
   "scope": "./",
