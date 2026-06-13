@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Critter Academy — Sight Word Reading Game</title>
+<meta name="description" content="A gentle sight-word reading game for early readers. Read words, grow your critter, and watch it evolve!">
+
+<!-- PWA / install -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff4da6">
+<link rel="icon" type="image/png" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Critter Academy">
+
+<!-- Social share preview -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Critter Academy">
+<meta property="og:description" content="A gentle sight-word reading game. Read words, grow your critter, and watch it evolve!">
+<meta property="og:image" content="og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Trebuchet MS', cursive;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: background 1.2s;
+  padding: 10px;
+  touch-action: manipulation; /* no double-tap zoom for little fingers */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.theme-fire,
+.theme-water,
+.theme-grass,
+.theme-electric,
+.theme-fairy,
+.theme-ice,
+.theme-psychic,
+.theme-flower  { background: linear-gradient(160deg, #ffcce0 0%, #ff85b3 45%, #ff4da6 100%); }
+
+/* ── screens ── */
+#title-screen, #win-screen, #dex-screen {
+  text-align: center;
+  background: rgba(255,255,255,0.28);
+  border-radius: 32px;
+  padding: 36px 40px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  max-width: 520px;
+  width: 100%;
+}
+
+#game-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 520px;
+  gap: 12px;
+}
+
+h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,0,0,.18); }
+.subtitle { font-size: 1.1em; color: rgba(255,255,255,.92); margin: 8px 0 24px; }
+
+/* ── badge ── */
+.badge {
+  background: rgba(255,255,255,.45);
+  border-radius: 50px;
+  padding: 7px 20px;
+  font-size: 1.05em;
+  color: white;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.18);
+  text-align: center;
+}
+
+/* ── progress bar ── */
+.prog-wrap {
+  width: 100%;
+  background: rgba(255,255,255,.35);
+  border-radius: 50px;
+  height: 26px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.15);
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 50px;
+  background: linear-gradient(90deg, #2ecc71, #f1c40f, #e74c3c);
+  background-size: 300% 100%;
+  transition: width .6s cubic-bezier(.34,1.56,.64,1);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: .8em; font-weight: bold;
+}
+
+/* ── stars row ── */
+.stars-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.s { font-size: 1.4em; opacity: .22; transition: opacity .3s, transform .3s; display: inline-block; }
+.s.on { opacity: 1; animation: starPop .4s cubic-bezier(.175,.885,.32,1.275) forwards; }
+@keyframes starPop { 0%{transform:scale(0) rotate(-20deg)} 80%{transform:scale(1.4) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
+
+/* ── creature area ── */
+.creature-wrap {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 160px;
+}
+.creature-wrap svg { transition: filter .4s; }
+.creature-wrap.glow svg { filter: drop-shadow(0 0 18px gold) drop-shadow(0 0 8px white); }
+
+/* ── action overlays ── */
+.action-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; display: flex; align-items: center; justify-content: center;
+}
+/* eat: cupcake drops in, shrinks away */
+.anim-eat { font-size: 2.6em; animation: eatAnim 1.3s ease forwards; }
+@keyframes eatAnim {
+  0%  { transform: translateY(-30px) scale(0.4); opacity: 0; }
+  25% { transform: translateY(0)     scale(1.2); opacity: 1; }
+  70% { transform: translateY(5px)   scale(1);   opacity: 1; }
+  100%{ transform: translateY(5px)   scale(0);   opacity: 0; }
+}
+/* pet: hand sweeps side to side */
+.anim-pet { font-size: 2.6em; animation: petAnim 1.1s ease forwards; }
+@keyframes petAnim {
+  0%  { transform: translate(-35px,-20px) rotate(-30deg); opacity: 0; }
+  15% { opacity: 1; }
+  40% { transform: translate(0,  -30px)  rotate(0deg); }
+  65% { transform: translate(35px,-20px) rotate(30deg); opacity: 1; }
+  100%{ transform: translate(35px, 10px) rotate(30deg); opacity: 0; }
+}
+/* train: weight bounces */
+.anim-train { font-size: 2.6em; animation: trainAnim 1.2s ease forwards; }
+@keyframes trainAnim {
+  0%  { transform: translateY(20px) scale(0.5); opacity: 0; }
+  20% { transform: translateY(-10px) scale(1.1); opacity: 1; }
+  45% { transform: translateY(4px)  scale(1);   opacity: 1; }
+  65% { transform: translateY(-14px) scale(1.05); }
+  85% { transform: translateY(4px)  scale(1);   opacity: 1; }
+  100%{ transform: translateY(4px)  scale(0.2); opacity: 0; }
+}
+/* love: heart floats up */
+.anim-love { font-size: 3em; animation: loveAnim 1.2s ease forwards; }
+@keyframes loveAnim {
+  0%  { transform: translateY(0)    scale(0.4); opacity: 0; }
+  25% { transform: translateY(-10px) scale(1.3); opacity: 1; }
+  80% { transform: translateY(-55px) scale(1);   opacity: 1; }
+  100%{ transform: translateY(-70px) scale(0.6); opacity: 0; }
+}
+/* nap: three z's float up staggered */
+.anim-nap { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.anim-nap span { animation: napZ 1.6s ease forwards; opacity: 0; font-weight: bold; color: #a29bfe; text-shadow: 1px 1px 2px rgba(0,0,0,.2); }
+.anim-nap .z1 { font-size: 1.4em; animation-delay: 0s; }
+.anim-nap .z2 { font-size: 1.9em; animation-delay: .3s; }
+.anim-nap .z3 { font-size: 2.5em; animation-delay: .6s; }
+@keyframes napZ {
+  0%  { transform: translate(0, 0)   rotate(0deg);  opacity: 0; }
+  15% { opacity: 1; }
+  100%{ transform: translate(25px,-60px) rotate(15deg); opacity: 0; }
+}
+
+/* ── action text ── */
+.action-txt {
+  font-size: 1.25em; color: white;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.25);
+  font-weight: bold; min-height: 1.6em; text-align: center;
+}
+
+/* ── word card ── */
+.word-card {
+  background: white;
+  border-radius: 22px;
+  padding: 18px 44px;
+  font-size: clamp(3em,10vw,4.5em);
+  font-weight: 900;
+  color: #2c3e50;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2), 0 3px 0 rgba(0,0,0,.12);
+  letter-spacing: 6px;
+  text-transform: lowercase;
+  animation: wordPop .45s cubic-bezier(.175,.885,.32,1.275) both;
+}
+@keyframes wordPop {
+  0%  { transform: scale(0) rotate(-12deg); opacity: 0; }
+  100%{ transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+.word-card.wobble { animation: wobble .4s ease both; }
+@keyframes wobble {
+  0%,100%{ transform:rotate(0) } 25%{transform:rotate(-4deg)} 75%{transform:rotate(4deg)}
+}
+
+/* ── feedback float ── */
+.fb { height: 44px; display:flex; align-items:center; justify-content:center; font-size:1.8em; }
+.float-up { animation: floatUp .9s ease forwards; }
+@keyframes floatUp { 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-46px);opacity:0} }
+
+/* ── buttons ── */
+.btn-row { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+.btn {
+  padding: 14px 28px; font-size: 1.25em;
+  font-family: inherit; border: none; border-radius: 50px; cursor: pointer;
+  transition: transform .1s, box-shadow .1s;
+  box-shadow: 0 6px 0 rgba(0,0,0,.2); font-weight: bold;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.2); }
+.btn-start  { background:#2ecc71; color:white; font-size:1.5em; padding:20px 52px; }
+.btn-ok     { background:#2ecc71; color:white; }
+.btn-retry  { background:#f39c12; color:white; }
+.btn-again  { background:#9b59b6; color:white; font-size:1.35em; padding:18px 40px; margin-top:16px; }
+
+/* ── level label ── */
+.lvl {
+  font-size:.88em; color:rgba(255,255,255,.92);
+  background:rgba(0,0,0,.14); padding:4px 14px; border-radius:20px;
+}
+
+/* ── win screen ── */
+.win-title {
+  font-size: clamp(1.8em,6vw,2.6em); color:white;
+  text-shadow: 3px 3px 0 rgba(0,0,0,.2);
+  margin-bottom: 10px; animation: pulse .8s ease infinite alternate;
+}
+@keyframes pulse { from{transform:scale(1)} to{transform:scale(1.06)} }
+.win-msg { font-size:1.15em; color:white; text-shadow:1px 1px 0 rgba(0,0,0,.2); margin:14px 0 6px; white-space:pre-line; }
+
+/* ── confetti ── */
+#confetti { position:fixed; top:0;left:0;width:100%;height:100%; pointer-events:none; overflow:hidden; z-index:999; }
+.cp { position:absolute; animation:fall linear forwards; border-radius:50%; }
+@keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(105vh) rotate(720deg);opacity:0} }
+
+/* ── creature bounce anim ── */
+@keyframes bounce {
+  0%,100%{transform:translateY(0) scale(1)}
+  35%{transform:translateY(-22px) scale(1.08)}
+  65%{transform:translateY(-10px) scale(1.04)}
+}
+@keyframes evolveAnim {
+  0%{transform:scale(0) rotate(-15deg);opacity:0}
+  60%{transform:scale(1.18) rotate(3deg);opacity:1}
+  100%{transform:scale(1) rotate(0);opacity:1}
+}
+
+/* ── level picker ── */
+.level-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:20px; }
+.level-pill {
+  font-family:inherit; font-size:.95em; font-weight:bold; cursor:pointer;
+  border:3px solid rgba(255,255,255,.7); border-radius:50px;
+  padding:8px 18px; background:rgba(255,255,255,.25); color:white;
+  text-shadow:1px 1px 0 rgba(0,0,0,.15); transition:all .15s;
+}
+.level-pill.sel { background:white; color:#e84393; text-shadow:none; transform:scale(1.06); }
+
+/* ── title stats + dex button ── */
+.title-stats { margin-top:16px; color:white; font-weight:bold; font-size:.95em; text-shadow:1px 1px 0 rgba(0,0,0,.18); }
+.btn-dex  { background:#9b59b6; color:white; font-size:1em; padding:10px 24px; margin-top:10px; }
+.btn-home { background:#3498db; color:white; }
+
+/* ── word row + speak button ── */
+.word-row { display:flex; align-items:center; gap:12px; }
+.speak-btn {
+  background:white; border:none; border-radius:50%; width:54px; height:54px;
+  font-size:1.4em; cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,.15); flex-shrink:0;
+}
+.speak-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.15); }
+
+/* ── critter collection ── */
+.dex-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:6px 0 16px; }
+@media (max-width:420px){ .dex-grid { grid-template-columns:repeat(2,1fr); } }
+.dex-card {
+  background:rgba(255,255,255,.4); border-radius:16px; padding:10px 4px 8px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.dex-card svg { width:64px; height:64px; }
+.dex-card.locked svg { filter:brightness(0) opacity(.3); }
+.dex-name  { font-size:.72em; font-weight:bold; color:white; text-shadow:1px 1px 0 rgba(0,0,0,.2); }
+.dex-count { font-size:.68em; color:white; text-shadow:1px 1px 0 rgba(0,0,0,.2); }
+
+.hidden { display:none !important; }
+</style>
+</head>
+<body class="theme-fairy">
+<div id="confetti"></div>
+
+<!-- ════════ TITLE ════════ -->
+<div id="title-screen">
+  <h1>✨ Critter Academy ✨</h1>
+  <p class="subtitle">Read words, grow your Critter, and evolve!</p>
+  <div id="title-preview" style="display:flex;justify-content:center;margin:18px 0 22px;"></div>
+  <div class="level-row">
+    <button class="level-pill" data-level="tiny"  onclick="setLevel('tiny')">Tiny words</button>
+    <button class="level-pill" data-level="short" onclick="setLevel('short')">Short words</button>
+    <button class="level-pill" data-level="mix"   onclick="setLevel('mix')">Mix it up!</button>
+  </div>
+  <button class="btn btn-start" onclick="startGame()">🌟 Let's Play! 🌟</button>
+  <div class="title-stats" id="titleStats"></div>
+  <button class="btn btn-dex" onclick="openDex()">📖 My Critters</button>
+</div>
+
+<!-- ════════ CRITTER COLLECTION ════════ -->
+<div id="dex-screen" class="hidden">
+  <h1>📖 My Critters</h1>
+  <p class="subtitle" id="dexCount"></p>
+  <div class="dex-grid" id="dexGrid"></div>
+  <button class="btn btn-again" onclick="closeDex()">⬅️ Back</button>
+</div>
+
+<!-- ════════ GAME ════════ -->
+<div id="game-screen" class="hidden">
+  <div class="badge" id="badge">⭐ Critter</div>
+
+  <div class="prog-wrap"><div class="prog-fill" id="prog" style="width:0%"></div></div>
+
+  <div class="stars-row" id="stars"></div>
+  <div class="lvl" id="lvl">Baby form 🥚</div>
+
+  <div class="creature-wrap" id="cw">
+    <div id="creature-svg"></div>
+    <div class="action-overlay" id="aov"></div>
+  </div>
+
+  <div class="action-txt" id="actTxt"></div>
+
+  <div class="word-row">
+    <div class="word-card" id="wcard">the</div>
+    <button class="speak-btn" onclick="speakWord()" title="Hear the word">🔊</button>
+  </div>
+
+  <div class="fb" id="fb"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-ok"    onclick="gotIt()">✅ Got it!</button>
+    <button class="btn btn-retry" onclick="tryAgain()">🔄 Try again</button>
+  </div>
+</div>
+
+<!-- ════════ WIN ════════ -->
+<div id="win-screen" class="hidden">
+  <div class="win-title">🎉 YOU DID IT! 🎉</div>
+  <div id="win-cw" style="display:flex;justify-content:center;margin:14px 0;animation:evolveAnim .8s cubic-bezier(.175,.885,.32,1.275) both;"></div>
+  <div class="win-msg" id="winMsg"></div>
+  <div class="btn-row" style="margin-top:16px;">
+    <button class="btn btn-again" style="margin-top:0;" onclick="resetGame()">🌟 Play Again!</button>
+    <button class="btn btn-home" onclick="goHome()">🏠 Home</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  SIGHT WORDS  (pre-primer + primer + CVC)
+// ══════════════════════════════════════════
+const WORDS2 = [
+  'we','go','us','in','an','at','it','is','am','my',
+  'me','do','to','no','so','up','by','he','be','or',
+  'if','of','as','on','hi','ok','oh','ow','ax','ox',
+];
+const WORDS3 = [
+  'the','and','can','run','cat','dog','hat','big','had',
+  'has','him','his','how','let','new','now','old','one',
+  'our','out','say','she','too','was','who','her','not',
+  'got','hot','hop','top','pop','sit','bit','fit','did',
+  'fun','sun','bun','bug','hug','mug','jug','log','fog',
+  'see','red','two','for','you','put','use','way','bed',
+  'pet','web','cup','map','nap','tap','bat','mat','pan',
+  'fan','van','ran','tan','pin','tin','win','bin','fin',
+];
+const LEVELS = {
+  tiny:  { label:'Tiny words',  words: WORDS2 },
+  short: { label:'Short words', words: WORDS3 },
+  mix:   { label:'Mix it up!',  words: [...WORDS2, ...WORDS3] },
+};
+
+// ══════════════════════════════════════════
+//  SVG HELPERS
+// ══════════════════════════════════════════
+function face(cx, cy, eyeC='#2c3e50', big=false) {
+  const er = big ? 13 : 10, pr = big ? 8 : 6, hr = big ? 3.5 : 2.5;
+  const bx = big ? 30 : 26, by = big ? 12 : 10, br = big ? [9,7] : [7,5];
+  return `
+    <ellipse cx="${cx-19}" cy="${cy}" rx="${er}" ry="${er+1}" fill="white"/>
+    <ellipse cx="${cx+19}" cy="${cy}" rx="${er}" ry="${er+1}" fill="white"/>
+    <circle  cx="${cx-19}" cy="${cy+1}" r="${pr}" fill="${eyeC}"/>
+    <circle  cx="${cx+19}" cy="${cy+1}" r="${pr}" fill="${eyeC}"/>
+    <circle  cx="${cx-16}" cy="${cy-2}" r="${hr}" fill="white"/>
+    <circle  cx="${cx+22}" cy="${cy-2}" r="${hr}" fill="white"/>
+    <ellipse cx="${cx-bx}" cy="${cy+by}" rx="${br[0]}" ry="${br[1]}" fill="#ffb3ba" opacity=".7"/>
+    <ellipse cx="${cx+bx}" cy="${cy+by}" rx="${br[0]}" ry="${br[1]}" fill="#ffb3ba" opacity=".7"/>
+    <path d="M${cx-11} ${cy+17} Q${cx} ${cy+27} ${cx+11} ${cy+17}" stroke="${eyeC}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  `;
+}
+
+// ══════════════════════════════════════════
+//  CREATURE GENERATORS
+// ══════════════════════════════════════════
+function svgWrap(w, h, inner) {
+  return `<svg width="${w}" height="${h}" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+}
+
+// scale factor per stage 0-9
+function sc(stage) { return 0.72 + stage * 0.03; }
+
+// ─── FIRE (baby salamander → dragon) ───────────────────────────────
+function fireSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <ellipse cx="100" cy="128" rx="62" ry="55" fill="#e84118"/>
+    <ellipse cx="100" cy="95"  rx="50" ry="56" fill="#ff6b6b"/>
+    <ellipse cx="38"  cy="92"  rx="32" ry="20" fill="#c0392b" transform="rotate(-28,38,92)"/>
+    <ellipse cx="162" cy="92"  rx="32" ry="20" fill="#c0392b" transform="rotate(28,162,92)"/>
+    <polygon points="80,58 75,28 92,54"  fill="#ffd93d"/>
+    <polygon points="100,50 97,20 110,47" fill="#ffd93d"/>
+    <polygon points="120,58 123,28 108,54" fill="#ffd93d"/>
+    <polygon points="68,62 56,24 84,57" fill="#ffd93d"/>
+    <polygon points="132,62 144,24 116,57" fill="#ffd93d"/>
+    <path d="M155 148 Q180 165 172 182 Q160 172 155 158 Z" fill="#e84118"/>
+    ${face(100,90,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">🔥</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${44*s}" ry="${37*s}" fill="#ff6b6b"/>
+    <ellipse cx="100" cy="105" rx="${37*s}" ry="${41*s}" fill="#ff9f9f"/>
+    <ellipse cx="148" cy="153" rx="${18*s}" ry="${11*s}" fill="#ff6b6b" transform="rotate(22,148,153)"/>
+    <text x="158" y="168" font-size="${7+stage}" text-anchor="middle">🔥</text>
+    <ellipse cx="73"  cy="76"  rx="${10*s}" ry="${15*s}" fill="#ffd93d" transform="rotate(-18,73,76)"/>
+    <ellipse cx="127" cy="76"  rx="${10*s}" ry="${15*s}" fill="#ffd93d" transform="rotate(18,127,76)"/>
+    ${face(100,100,'#c0392b')}
+  `);
+}
+
+// ─── WATER (otter → sea dragon) ──────────────────────────────────
+function waterSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <ellipse cx="100" cy="118" rx="68" ry="62" fill="#0984e3"/>
+    <ellipse cx="100" cy="88"  rx="54" ry="60" fill="#74b9ff"/>
+    <ellipse cx="100" cy="105" rx="34" ry="44" fill="#a8edea"/>
+    <ellipse cx="33"  cy="98"  rx="26" ry="17" fill="#0984e3" transform="rotate(-22,33,98)"/>
+    <ellipse cx="167" cy="98"  rx="26" ry="17" fill="#0984e3" transform="rotate(22,167,98)"/>
+    <ellipse cx="100" cy="174" rx="38" ry="14" fill="#0984e3"/>
+    <polygon points="86,42 90,14 100,40" fill="#74b9ff"/>
+    <polygon points="100,38 107,12 112,36" fill="#74b9ff"/>
+    ${face(100,85,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">💧</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${42*s}" ry="${36*s}" fill="#74b9ff"/>
+    <ellipse cx="100" cy="105" rx="${34*s}" ry="${38*s}" fill="#a8edea"/>
+    <ellipse cx="62"  cy="140" rx="${17*s}" ry="${9*s}"  fill="#74b9ff" transform="rotate(28,62,140)"/>
+    <ellipse cx="138" cy="140" rx="${17*s}" ry="${9*s}"  fill="#74b9ff" transform="rotate(-28,138,140)"/>
+    <ellipse cx="100" cy="163" rx="${13*s}" ry="${7*s}"  fill="#74b9ff"/>
+    <line x1="66" y1="110" x2="46" y2="107" stroke="#2c3e50" stroke-width="1.5"/>
+    <line x1="66" y1="116" x2="46" y2="116" stroke="#2c3e50" stroke-width="1.5"/>
+    <line x1="134" y1="110" x2="154" y2="107" stroke="#2c3e50" stroke-width="1.5"/>
+    <line x1="134" y1="116" x2="154" y2="116" stroke="#2c3e50" stroke-width="1.5"/>
+    ${face(100,100,'#0984e3')}
+  `);
+}
+
+// ─── GRASS (bunny sprout → forest guardian) ───────────────────────
+function grassSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <ellipse cx="100" cy="132" rx="64" ry="57" fill="#00b894"/>
+    <ellipse cx="100" cy="98"  rx="52" ry="57" fill="#55efc4"/>
+    <ellipse cx="73"  cy="42"  rx="15" ry="38" fill="#00b894" transform="rotate(-14,73,42)"/>
+    <ellipse cx="127" cy="42"  rx="15" ry="38" fill="#00b894" transform="rotate(14,127,42)"/>
+    <ellipse cx="73"  cy="42"  rx="8"  ry="26" fill="#55efc4" transform="rotate(-14,73,42)"/>
+    <ellipse cx="127" cy="42"  rx="8"  ry="26" fill="#55efc4" transform="rotate(14,127,42)"/>
+    <circle cx="86"  cy="56" r="9" fill="#ffd93d"/>
+    <circle cx="100" cy="48" r="9" fill="#ff6b6b"/>
+    <circle cx="114" cy="56" r="9" fill="#a29bfe"/>
+    <ellipse cx="100" cy="115" rx="34" ry="42" fill="#ffeaa7" opacity=".45"/>
+    <ellipse cx="70"  cy="170" rx="20" ry="16" fill="#00b894"/>
+    <ellipse cx="130" cy="170" rx="20" ry="16" fill="#00b894"/>
+    <circle cx="150" cy="148" r="10" fill="white"/>
+    ${face(100,94,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">🌿</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${40*s}" ry="${35*s}" fill="#55efc4"/>
+    <ellipse cx="100" cy="106" rx="${32*s}" ry="${38*s}" fill="#b2f5e8"/>
+    <ellipse cx="79"  cy="60"  rx="${10*s}" ry="${28*s}" fill="#55efc4" transform="rotate(-10,79,60)"/>
+    <ellipse cx="121" cy="60"  rx="${10*s}" ry="${28*s}" fill="#55efc4" transform="rotate(10,121,60)"/>
+    <ellipse cx="79"  cy="60"  rx="${6*s}"  ry="${20*s}" fill="#ffb3ba" transform="rotate(-10,79,60)"/>
+    <ellipse cx="121" cy="60"  rx="${6*s}"  ry="${20*s}" fill="#ffb3ba" transform="rotate(10,121,60)"/>
+    <ellipse cx="100" cy="50"  rx="${8*s}"  ry="${5*s}"  fill="#00b894" transform="rotate(-30,100,50)"/>
+    <circle  cx="146" cy="144" r="${8*s}"   fill="white"/>
+    ${face(100,100,'#00b894')}
+  `);
+}
+
+// ─── ELECTRIC (hamster → thunder beast) ───────────────────────────
+function elecSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <circle cx="100" cy="92" r="60" fill="none" stroke="#ffd93d" stroke-width="4" stroke-dasharray="10,5" opacity=".55"/>
+    <ellipse cx="100" cy="130" rx="62" ry="58" fill="#fdcb6e"/>
+    <ellipse cx="100" cy="94"  rx="52" ry="54" fill="#ffeaa7"/>
+    <polygon points="100,36 93,8  108,33"  fill="#f39c12"/>
+    <polygon points="76,46  62,20 84,46"   fill="#f39c12"/>
+    <polygon points="124,46 138,20 116,46" fill="#f39c12"/>
+    <polygon points="60,67  37,50 66,70"   fill="#f39c12"/>
+    <polygon points="140,67 163,50 134,70" fill="#f39c12"/>
+    <ellipse cx="70"  cy="170" rx="18" ry="15" fill="#fdcb6e"/>
+    <ellipse cx="130" cy="170" rx="18" ry="15" fill="#fdcb6e"/>
+    <path d="M157 140 L173 124 L160 117 L180 96" stroke="#ffd93d" stroke-width="5" fill="none" stroke-linecap="round"/>
+    ${face(100,88,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">⚡</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${42*s}" ry="${38*s}" fill="#ffeaa7"/>
+    <ellipse cx="100" cy="107" rx="${35*s}" ry="${40*s}" fill="#fff9e6"/>
+    <circle  cx="72"  cy="72"  r="${16*s}"  fill="#ffeaa7"/>
+    <circle  cx="128" cy="72"  r="${16*s}"  fill="#ffeaa7"/>
+    <circle  cx="72"  cy="72"  r="${10*s}"  fill="#ffb3ba"/>
+    <circle  cx="128" cy="72"  r="${10*s}"  fill="#ffb3ba"/>
+    <ellipse cx="68"  cy="116" rx="${16*s}" ry="${13*s}" fill="#fff9e6"/>
+    <ellipse cx="132" cy="116" rx="${16*s}" ry="${13*s}" fill="#fff9e6"/>
+    <text x="100" y="54" font-size="${8+stage}" text-anchor="middle">⚡</text>
+    ${face(100,100,'#f39c12')}
+  `);
+}
+
+// ─── FAIRY (kitty → star unicorn) ─────────────────────────────────
+function fairySVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <ellipse cx="100" cy="130" rx="64" ry="60" fill="#fd79a8"/>
+    <ellipse cx="100" cy="94"  rx="50" ry="58" fill="#fdcfe8"/>
+    <polygon points="100,14 88,54 112,54" fill="#a29bfe"/>
+    <polygon points="100,19 94,51 106,51" fill="#d4c5ff"/>
+    <text x="62"  y="70" font-size="14">⭐</text>
+    <text x="124" y="68" font-size="14">✨</text>
+    <text x="90"  y="55" font-size="10">🌟</text>
+    <ellipse cx="30"  cy="104" rx="30" ry="17" fill="#fdcfe8" opacity=".82" transform="rotate(-20,30,104)"/>
+    <ellipse cx="170" cy="104" rx="30" ry="17" fill="#fdcfe8" opacity=".82" transform="rotate(20,170,104)"/>
+    <ellipse cx="70"  cy="172" rx="17" ry="14" fill="#fd79a8"/>
+    <ellipse cx="130" cy="172" rx="17" ry="14" fill="#fd79a8"/>
+    <path d="M154 153 Q175 163 166 181 Q151 170 154 153 Z" fill="#a29bfe"/>
+    ${face(100,90,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">🦄</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${40*s}" ry="${36*s}" fill="#fd79a8"/>
+    <ellipse cx="100" cy="106" rx="${34*s}" ry="${38*s}" fill="#fdcfe8"/>
+    <polygon points="72,72 60,42 88,68"  fill="#fd79a8"/>
+    <polygon points="128,72 140,42 112,68" fill="#fd79a8"/>
+    <polygon points="74,70 65,50 85,68"  fill="#ffb3d1"/>
+    <polygon points="126,70 135,50 115,68" fill="#ffb3d1"/>
+    <polygon points="100,62 96,50 104,50" fill="#a29bfe"/>
+    <path d="M140 148 Q165 138 168 160 Q154 165 140 155 Z" fill="#fd79a8"/>
+    ${face(100,100,'#e84393')}
+  `);
+}
+
+// ─── ICE (polar cub → snow phoenix) ───────────────────────────────
+function iceSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <ellipse cx="100" cy="120" rx="60" ry="55" fill="#74b9ff"/>
+    <ellipse cx="100" cy="90"  rx="48" ry="52" fill="#dfe6e9"/>
+    <ellipse cx="24"  cy="95"  rx="40" ry="22" fill="#dfe6e9" transform="rotate(-36,24,95)"/>
+    <ellipse cx="176" cy="95"  rx="40" ry="22" fill="#dfe6e9" transform="rotate(36,176,95)"/>
+    <ellipse cx="28"  cy="90"  rx="26" ry="14" fill="white" transform="rotate(-36,28,90)"/>
+    <ellipse cx="172" cy="90"  rx="26" ry="14" fill="white" transform="rotate(36,172,90)"/>
+    <ellipse cx="88"  cy="47"  rx="8"  ry="22" fill="white"    transform="rotate(-14,88,47)"/>
+    <ellipse cx="100" cy="42"  rx="8"  ry="25" fill="#dfe6e9"/>
+    <ellipse cx="112" cy="47"  rx="8"  ry="22" fill="white"    transform="rotate(14,112,47)"/>
+    <text x="54"  y="84" font-size="12">❄️</text>
+    <text x="136" y="84" font-size="12">❄️</text>
+    <ellipse cx="100" cy="168" rx="30" ry="12" fill="#dfe6e9"/>
+    ${face(100,87,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">❄️</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${42*s}" ry="${38*s}" fill="#dfe6e9"/>
+    <ellipse cx="100" cy="107" rx="${35*s}" ry="${40*s}" fill="white"/>
+    <circle  cx="72"  cy="72"  r="${15*s}"  fill="#dfe6e9"/>
+    <circle  cx="128" cy="72"  r="${15*s}"  fill="#dfe6e9"/>
+    <circle  cx="72"  cy="72"  r="${9*s}"   fill="white"/>
+    <circle  cx="128" cy="72"  r="${9*s}"   fill="white"/>
+    <ellipse cx="100" cy="118" rx="${22*s}" ry="${28*s}" fill="white"/>
+    <ellipse cx="68"  cy="148" rx="${14*s}" ry="${10*s}" fill="#dfe6e9"/>
+    <ellipse cx="132" cy="148" rx="${14*s}" ry="${10*s}" fill="#dfe6e9"/>
+    <text x="100" y="90" font-size="${7+stage}" text-anchor="middle">❄️</text>
+    ${face(100,104,'#74b9ff')}
+  `);
+}
+
+// ─── PSYCHIC (fox kit → cosmic fox) ───────────────────────────────
+function psychicSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <circle cx="100" cy="100" r="88" fill="none" stroke="#a29bfe" stroke-width="3" opacity=".38"/>
+    <circle cx="100" cy="100" r="76" fill="none" stroke="#6c5ce7" stroke-width="2" opacity=".28"/>
+    <ellipse cx="100" cy="130" rx="62" ry="58" fill="#6c5ce7"/>
+    <ellipse cx="100" cy="94"  rx="50" ry="56" fill="#a29bfe"/>
+    <polygon points="70,60 55,10 88,57"   fill="#6c5ce7"/>
+    <polygon points="130,60 145,10 112,57" fill="#6c5ce7"/>
+    <polygon points="72,58 63,24 85,57"  fill="#fd79a8"/>
+    <polygon points="128,58 137,24 115,57" fill="#fd79a8"/>
+    <path d="M148 148 Q175 134 180 155 Q165 168 148 158" fill="#6c5ce7"/>
+    <path d="M150 157 Q178 148 180 170 Q163 178 150 166" fill="#a29bfe"/>
+    <text x="78"  y="80" font-size="10">✨</text>
+    <text x="116" y="78" font-size="10">⭐</text>
+    <text x="96"  y="62" font-size="10">🌟</text>
+    ${face(100,90,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">🔮</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${40*s}" ry="${36*s}" fill="#a29bfe"/>
+    <ellipse cx="100" cy="107" rx="${33*s}" ry="${38*s}" fill="#d4c5ff"/>
+    <polygon points="75,75 62,40 90,72"   fill="#a29bfe"/>
+    <polygon points="125,75 138,40 110,72" fill="#a29bfe"/>
+    <polygon points="76,73 66,50 87,71"   fill="#fd79a8"/>
+    <polygon points="124,73 134,50 113,71" fill="#fd79a8"/>
+    <path d="M140 148 Q165 134 168 158 Q153 168 140 158 Z" fill="#a29bfe"/>
+    <ellipse cx="155" cy="154" r="${8*s}" fill="white"/>
+    <text x="100" y="92" font-size="${7+stage}" text-anchor="middle">⭐</text>
+    ${face(100,104,'#6c5ce7')}
+  `);
+}
+
+// ─── FLOWER (hedgehog → rainbow deer) ─────────────────────────────
+function flowerSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <ellipse cx="100" cy="130" rx="62" ry="58" fill="#e17055"/>
+    <ellipse cx="100" cy="94"  rx="50" ry="56" fill="#fdcb6e"/>
+    <line x1="75"  y1="58" x2="54"  y2="18" stroke="#6d4c41" stroke-width="6"/>
+    <line x1="54"  y1="18" x2="36"  y2="30" stroke="#6d4c41" stroke-width="5"/>
+    <line x1="54"  y1="18" x2="50"  y2="6"  stroke="#6d4c41" stroke-width="4"/>
+    <line x1="125" y1="58" x2="146" y2="18" stroke="#6d4c41" stroke-width="6"/>
+    <line x1="146" y1="18" x2="164" y2="30" stroke="#6d4c41" stroke-width="5"/>
+    <line x1="146" y1="18" x2="150" y2="6"  stroke="#6d4c41" stroke-width="4"/>
+    <circle cx="36"  cy="28" r="8" fill="#ff6b6b"/>
+    <circle cx="50"  cy="4"  r="8" fill="#ffd93d"/>
+    <circle cx="164" cy="28" r="8" fill="#a29bfe"/>
+    <circle cx="150" cy="4"  r="8" fill="#55efc4"/>
+    <circle cx="78"  cy="112" r="8" fill="#ff6b6b" opacity=".6"/>
+    <circle cx="100" cy="106" r="8" fill="#ffd93d" opacity=".6"/>
+    <circle cx="122" cy="112" r="8" fill="#55efc4" opacity=".6"/>
+    <ellipse cx="72"  cy="172" rx="14" ry="18" fill="#e17055"/>
+    <ellipse cx="128" cy="172" rx="14" ry="18" fill="#e17055"/>
+    <ellipse cx="152" cy="145" rx="12" ry="8"  fill="#e17055"/>
+    <circle  cx="158" cy="141" r="7" fill="#fd79a8"/>
+    ${face(100,90,'#2c3e50',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">🌺</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="130" rx="${40*s}" ry="${36*s}" fill="#fdcb6e"/>
+    <ellipse cx="100" cy="108" rx="${34*s}" ry="${36*s}" fill="#fff3cd"/>
+    <line x1="80"  y1="80" x2="70"  y2="54" stroke="#e17055" stroke-width="3"/>
+    <line x1="90"  y1="76" x2="84"  y2="49" stroke="#e17055" stroke-width="3"/>
+    <line x1="100" y1="74" x2="100" y2="47" stroke="#e17055" stroke-width="3"/>
+    <line x1="110" y1="76" x2="116" y2="49" stroke="#e17055" stroke-width="3"/>
+    <line x1="120" y1="80" x2="130" y2="54" stroke="#e17055" stroke-width="3"/>
+    <circle cx="100" cy="45" r="${5+stage*.5}" fill="#fd79a8"/>
+    <ellipse cx="100" cy="112" rx="6" ry="4" fill="#e17055"/>
+    ${face(100,100,'#e17055')}
+  `);
+}
+
+// ══════════════════════════════════════════
+//  CREATURE DEFINITIONS
+// ══════════════════════════════════════════
+const CREATURES = [
+  { name:'Flamey',  theme:'fire',     babyName:'Baby Flamey',   evolvedName:'Flame Dragon',    type:'🔥 Fire',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got petted!',        anim:'pet'},
+      {txt:'🏋️ Lifted weights!',   anim:'train'},
+      {txt:'💤 Took a little nap!', anim:'nap'},
+      {txt:'💗 Is so happy!',       anim:'love'},
+    ], getSVG: fireSVG },
+  { name:'Droplet', theme:'water',   babyName:'Baby Droplet',  evolvedName:'Sea Serpent',     type:'💧 Water',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got cuddled!',       anim:'pet'},
+      {txt:'🏋️ Did some training!', anim:'train'},
+      {txt:'💤 Took a nap!',        anim:'nap'},
+      {txt:'💗 Is so happy!',       anim:'love'},
+    ], getSVG: waterSVG },
+  { name:'Leafy',   theme:'grass',   babyName:'Baby Leafy',    evolvedName:'Forest Guardian', type:'🌿 Grass',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got petted!',        anim:'pet'},
+      {txt:'🏋️ Trained so hard!',  anim:'train'},
+      {txt:'💤 Having a snooze!',   anim:'nap'},
+      {txt:'💗 Is so happy!',       anim:'love'},
+    ], getSVG: grassSVG },
+  { name:'Sparky',  theme:'electric',babyName:'Baby Sparky',   evolvedName:'Thunder Beast',   type:'⚡ Electric',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got petted!',        anim:'pet'},
+      {txt:'🏋️ Lifted weights!',   anim:'train'},
+      {txt:'💤 Taking a nap!',      anim:'nap'},
+      {txt:'💗 Is so happy!',       anim:'love'},
+    ], getSVG: elecSVG },
+  { name:'Moonsy',  theme:'fairy',   babyName:'Baby Moonsy',   evolvedName:'Star Unicorn',    type:'✨ Fairy',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got petted!',        anim:'pet'},
+      {txt:'🏋️ Did some training!', anim:'train'},
+      {txt:'💤 Dreaming away!',     anim:'nap'},
+      {txt:'💗 Is SO happy!',       anim:'love'},
+    ], getSVG: fairySVG },
+  { name:'Frosty',  theme:'ice',     babyName:'Baby Frosty',   evolvedName:'Snow Phoenix',    type:'❄️ Ice',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got petted!',        anim:'pet'},
+      {txt:'🏋️ Trained hard!',     anim:'train'},
+      {txt:'💤 Cozy snooze!',       anim:'nap'},
+      {txt:'💗 Is so happy!',       anim:'love'},
+    ], getSVG: iceSVG },
+  { name:'Starry',  theme:'psychic', babyName:'Baby Starry',   evolvedName:'Cosmic Fox',      type:'🔮 Psychic',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got petted!',        anim:'pet'},
+      {txt:'🏋️ Did some training!', anim:'train'},
+      {txt:'💤 Having a dream!',    anim:'nap'},
+      {txt:'💗 Is so happy!',       anim:'love'},
+    ], getSVG: psychicSVG },
+  { name:'Bloomie', theme:'flower',  babyName:'Baby Bloomie',  evolvedName:'Rainbow Deer',    type:'🌺 Flower',
+    actions:[
+      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
+      {txt:'❤️ Got petted!',        anim:'pet'},
+      {txt:'🏋️ Trained so hard!',  anim:'train'},
+      {txt:'💤 Nap time!',          anim:'nap'},
+      {txt:'💗 Is so happy!',       anim:'love'},
+    ], getSVG: flowerSVG },
+];
+
+// ══════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════
+let creature, words, wordIdx, correct, lastCreatureIdx = -1;
+
+// ── safe storage (localStorage can throw in sandboxed contexts) ──
+function lsGet(k)   { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k,v) { try { localStorage.setItem(k, v); } catch {} }
+
+// ── saved progress (on-device) ──
+const SAVE_KEY = 'ca-save';
+let saveData = (function(){
+  try { return JSON.parse(lsGet(SAVE_KEY)) || {}; }
+  catch { return {}; }
+})();
+saveData.stars   = saveData.stars   || 0;
+saveData.evolved = saveData.evolved || {};
+function persist() {
+  lsSet(SAVE_KEY, JSON.stringify(saveData));
+}
+
+// ── difficulty level ──
+let level = lsGet('ca-level') || 'mix';
+if (!LEVELS[level]) level = 'mix';
+function setLevel(l) {
+  level = l;
+  lsSet('ca-level', l);
+  updateTitleStats();
+}
+
+// ── tap-to-hear ──
+function speakWord() {
+  if (!('speechSynthesis' in window)) return;
+  const w = document.getElementById('wcard').textContent.trim();
+  if (!w) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(w);
+  u.rate = 0.7; u.pitch = 1.1; u.lang = 'en-US';
+  speechSynthesis.speak(u);
+}
+
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(freq, startTime, dur, vol=0.35, type='sine', ctx) {
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+  osc.start(startTime); osc.stop(startTime + dur);
+}
+
+function playGotIt() {
+  const ctx = getCtx(), t = ctx.currentTime;
+  // happy ascending chime: C E G C5
+  [[523,0],[659,.13],[784,.26],[1047,.42]].forEach(([f,d])=> playTone(f, t+d, 0.38, 0.32, 'sine', ctx));
+}
+
+function playWin() {
+  const ctx = getCtx(), t = ctx.currentTime;
+  // fanfare: C E G + octave burst + high sparkle
+  [[523,0,0.5],[659,.12,0.45],[784,.24,0.42],[1047,.4,0.55],[1319,.58,0.5],[1568,.72,0.6],[2093,.9,0.8]].forEach(([f,d,dur])=> playTone(f, t+d, dur, 0.28, 'sine', ctx));
+  // extra shimmer layer
+  [[2637,0.3],[3136,0.5],[2093,0.75]].forEach(([f,d])=> playTone(f, t+d, 0.3, 0.12, 'triangle', ctx));
+}
+
+function showActionAnim(type) {
+  const ov = document.getElementById('aov');
+  if (!ov) return;
+  ov.innerHTML = '';
+  let inner = '';
+  if (type === 'eat')   inner = `<span class="anim-eat">🧁</span>`;
+  if (type === 'pet')   inner = `<span class="anim-pet">🤚</span>`;
+  if (type === 'train') inner = `<span class="anim-train">🏋️</span>`;
+  if (type === 'love')  inner = `<span class="anim-love">❤️</span>`;
+  if (type === 'nap')   inner = `<div class="anim-nap"><span class="z1">z</span><span class="z2">z</span><span class="z3">Z</span></div>`;
+  ov.innerHTML = inner;
+  setTimeout(() => { ov.innerHTML = ''; }, 1700);
+}
+
+function shuffle(a) {
+  const b = [...a];
+  for (let i=b.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; }
+  return b;
+}
+
+// ── title screen stats + level highlight ──
+function updateTitleStats() {
+  const n = CREATURES.filter(c => (saveData.evolved[c.name]||0) > 0).length;
+  document.getElementById('titleStats').textContent =
+    `⭐ ${saveData.stars} stars earned  ·  🐾 ${n}/${CREATURES.length} critters evolved`;
+  document.querySelectorAll('.level-pill').forEach(b =>
+    b.classList.toggle('sel', b.dataset.level === level));
+}
+
+// ── critter collection ──
+function openDex() {
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('dex-screen').classList.remove('hidden');
+  const g = document.getElementById('dexGrid');
+  g.innerHTML = '';
+  let n = 0;
+  CREATURES.forEach(c => {
+    const ev = saveData.evolved[c.name] || 0;
+    if (ev) n++;
+    const d = document.createElement('div');
+    d.className = 'dex-card' + (ev ? '' : ' locked');
+    d.innerHTML = (ev ? c.getSVG(10, true) : c.getSVG(5, false)) +
+      `<div class="dex-name">${ev ? c.evolvedName : '???'}</div>` +
+      (ev ? `<div class="dex-count">evolved ×${ev}</div>` : `<div class="dex-count">${c.type}</div>`);
+    g.appendChild(d);
+  });
+  document.getElementById('dexCount').textContent =
+    n === CREATURES.length ? 'You found them ALL! 🏆' : `${n} of ${CREATURES.length} critters evolved`;
+}
+function closeDex() {
+  document.getElementById('dex-screen').classList.add('hidden');
+  document.getElementById('title-screen').classList.remove('hidden');
+  updateTitleStats();
+}
+function goHome() {
+  document.getElementById('confetti').innerHTML = '';
+  document.getElementById('win-screen').classList.add('hidden');
+  document.getElementById('game-screen').classList.add('hidden');
+  document.getElementById('title-screen').classList.remove('hidden');
+  updateTitleStats();
+}
+
+// show a random creature on title
+(function() {
+  const c = CREATURES[Math.floor(Math.random()*CREATURES.length)];
+  document.body.className = 'theme-'+c.theme;
+  document.getElementById('title-preview').innerHTML = c.getSVG(4,false);
+  updateTitleStats();
+})();
+
+function startGame() {
+  let idx;
+  do { idx = Math.floor(Math.random()*CREATURES.length); } while (idx===lastCreatureIdx && CREATURES.length>1);
+  lastCreatureIdx = idx;
+  creature = CREATURES[idx];
+
+  document.body.className = 'theme-'+creature.theme;
+  words = shuffle(LEVELS[level].words);
+  wordIdx = 0;
+  correct = 0;
+
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('win-screen').classList.add('hidden');
+  document.getElementById('game-screen').classList.remove('hidden');
+
+  // build stars
+  const sr = document.getElementById('stars');
+  sr.innerHTML = '';
+  for (let i=0;i<10;i++) { const s=document.createElement('span'); s.className='s'; s.id='s'+i; s.textContent='⭐'; sr.appendChild(s); }
+
+  updateHUD();
+  drawCreature();
+  nextWord();
+}
+
+function updateHUD() {
+  document.getElementById('badge').textContent = `${creature.type}: ${creature.babyName}`;
+  document.getElementById('prog').style.width = (correct/10*100)+'%';
+  if (correct>2) document.getElementById('prog').textContent = correct+'/10';
+  else document.getElementById('prog').textContent = '';
+
+  const labels = ['Baby form 🥚','Growing up! 🌱','Getting bigger! 🌿','Almost there! 🌟'];
+  const li = correct===0 ? 0 : correct<4 ? 1 : correct<8 ? 2 : 3;
+  document.getElementById('lvl').textContent = labels[li];
+}
+
+function drawCreature(bounce=false) {
+  const cw = document.getElementById('cw');
+  document.getElementById('creature-svg').innerHTML = creature.getSVG(correct, false);
+  if (bounce) {
+    const svg = cw.querySelector('svg');
+    svg.style.animation = 'none';
+    svg.offsetHeight;
+    svg.style.animation = 'bounce 0.55s ease';
+    cw.classList.add('glow');
+    setTimeout(()=>cw.classList.remove('glow'), 700);
+  }
+}
+
+function nextWord() {
+  if (wordIdx >= words.length) { words = shuffle(LEVELS[level].words); wordIdx = 0; }
+  const card = document.getElementById('wcard');
+  card.className = 'word-card';
+  card.textContent = words[wordIdx];
+  void card.offsetWidth;
+  card.className = 'word-card';
+  document.getElementById('actTxt').textContent = '';
+  document.getElementById('fb').innerHTML = '';
+}
+
+function gotIt() {
+  correct++;
+  wordIdx++;
+
+  // light up star
+  const star = document.getElementById('s'+(correct-1));
+  if (star) { star.classList.add('on'); }
+
+  saveData.stars++;
+  persist();
+
+  updateHUD();
+
+  playGotIt();
+
+  if (correct >= 10) { setTimeout(showWin, 600); return; }
+
+  // action text + animation
+  const a = creature.actions;
+  const act = a[(correct-1) % a.length];
+  document.getElementById('actTxt').textContent = act.txt;
+  showActionAnim(act.anim);
+
+  // floating hearts
+  const fb = document.getElementById('fb');
+  fb.innerHTML = '<span class="float-up">💖 ⭐ 💖</span>';
+  setTimeout(()=>fb.innerHTML='', 1000);
+
+  drawCreature(true);
+  setTimeout(nextWord, 620);
+}
+
+function tryAgain() {
+  const encs = ['You got this! 💪','Look again! 🌟','Almost! 🎯','Try once more! 💫','So close! ✨'];
+  document.getElementById('actTxt').textContent = encs[Math.floor(Math.random()*encs.length)];
+  const card = document.getElementById('wcard');
+  card.classList.remove('wobble');
+  void card.offsetWidth;
+  card.classList.add('wobble');
+}
+
+function showWin() {
+  saveData.evolved[creature.name] = (saveData.evolved[creature.name] || 0) + 1;
+  persist();
+  playWin();
+  document.getElementById('game-screen').classList.add('hidden');
+  document.getElementById('win-screen').classList.remove('hidden');
+
+  const wc = document.getElementById('win-cw');
+  wc.innerHTML = creature.getSVG(10, true);
+  wc.style.animation = 'none'; void wc.offsetWidth; wc.style.animation = 'evolveAnim 0.9s cubic-bezier(.175,.885,.32,1.275) both';
+
+  document.getElementById('winMsg').textContent =
+    `${creature.babyName} evolved into\n${creature.evolvedName}! 🎉\n\nYou are an AMAZING reader! 📚⭐`;
+
+  confetti();
+}
+
+function confetti() {
+  const c = document.getElementById('confetti');
+  const colors=['#ff6b6b','#ffd93d','#6bcb77','#74b9ff','#a29bfe','#fd79a8','#fdcb6e','#55efc4','#ff9f9f'];
+  for (let i=0;i<90;i++) {
+    setTimeout(()=>{
+      const p = document.createElement('div');
+      p.className = 'cp';
+      p.style.left = Math.random()*100+'vw';
+      p.style.background = colors[Math.floor(Math.random()*colors.length)];
+      const sz = 7+Math.random()*10;
+      p.style.width = sz+'px'; p.style.height = sz+'px';
+      if (Math.random()>.5) p.style.borderRadius = '2px';
+      p.style.animationDuration = (2.2+Math.random()*2.8)+'s';
+      c.appendChild(p);
+      setTimeout(()=>p.remove(), 5200);
+    }, i*65);
+  }
+}
+
+function resetGame() {
+  document.getElementById('confetti').innerHTML = '';
+  startGame();
+}
+
+// ── register service worker for offline + installability ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
