@@ -1,6 +1,6 @@
 // Readlings service worker — offline support via stale-while-revalidate.
 // Bump CACHE when you ship changes so clients refresh.
-const CACHE = 'readlings-v1';
+const CACHE = 'readlings-v2';
 const ASSETS = [
   './',
   './index.html',

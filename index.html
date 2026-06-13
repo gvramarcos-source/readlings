@@ -286,6 +286,33 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
 .dex-name  { font-size:.72em; font-weight:bold; color:white; text-shadow:1px 1px 0 rgba(0,0,0,.2); }
 .dex-count { font-size:.68em; color:white; text-shadow:1px 1px 0 rgba(0,0,0,.2); }
 
+/* ── how to play modal ── */
+.overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; backdrop-filter: blur(3px);
+}
+.howto-card {
+  background: white; border-radius: 28px; padding: 26px 24px;
+  max-width: 440px; width: 100%; text-align: left;
+  box-shadow: 0 12px 40px rgba(0,0,0,.3);
+  animation: wordPop .4s cubic-bezier(.175,.885,.32,1.275) both;
+  max-height: 92vh; overflow-y: auto;
+}
+.howto-card h2 { color:#e84393; text-align:center; font-size:1.7em; margin-bottom:4px; }
+.howto-lead { text-align:center; color:#636e72; margin-bottom:18px; font-size:1.02em; }
+.howto-steps { list-style:none; padding:0; display:flex; flex-direction:column; gap:14px; counter-reset:step; }
+.howto-steps li { font-size:1.05em; color:#2c3e50; line-height:1.4; display:flex; gap:12px; align-items:flex-start; }
+.howto-steps li > span { font-size:1.5em; flex-shrink:0; line-height:1; }
+.howto-buttons { margin-top:8px; font-size:.95em; color:#636e72; display:flex; flex-direction:column; gap:6px; }
+.pill-ok, .pill-retry { display:inline-block; color:white; font-weight:bold; border-radius:50px; padding:2px 12px; font-size:.92em; }
+.pill-ok { background:#2ecc71; }
+.pill-retry { background:#f39c12; }
+.howto-foot { text-align:center; margin:18px 0 16px; font-size:1.12em; color:#2c3e50; }
+.howto-card .btn-start { display:block; margin:0 auto; font-size:1.3em; padding:14px 44px; }
+.btn-help { background:#16a085; color:white; }
+
 .hidden { display:none !important; }
 </style>
 </head>
@@ -304,7 +331,31 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
   </div>
   <button class="btn btn-start" onclick="startGame()">🌟 Let's Play! 🌟</button>
   <div class="title-stats" id="titleStats"></div>
-  <button class="btn btn-dex" onclick="openDex()">📖 My Readlings</button>
+  <div class="btn-row" style="margin-top:8px;">
+    <button class="btn btn-help" onclick="openHowTo()">❓ How to Play</button>
+    <button class="btn btn-dex" onclick="openDex()">📖 My Readlings</button>
+  </div>
+</div>
+
+<!-- ════════ HOW TO PLAY ════════ -->
+<div id="howto-overlay" class="overlay hidden" onclick="if(event.target===this)closeHowTo()">
+  <div class="howto-card">
+    <h2>👋 How to Play</h2>
+    <p class="howto-lead">A read-together game for a grown-up and a child.</p>
+    <ol class="howto-steps">
+      <li><span>📖</span><div>A word pops up on the screen.</div></li>
+      <li><span>🗣️</span><div>Your child reads it out loud.</div></li>
+      <li><span>👂</span><div>You listen, then tap one:
+        <div class="howto-buttons">
+          <div><span class="pill-ok">✅ Got it!</span> &nbsp;they read it right</div>
+          <div><span class="pill-retry">🔄 Try again</span> &nbsp;not yet — no penalty, ever!</div>
+        </div>
+      </div></li>
+      <li><span>🔊</span><div>Tap the speaker anytime to hear the word.</div></li>
+    </ol>
+    <p class="howto-foot">Get <b>10</b> words right and your Readling <b>evolves!</b> 🎉</p>
+    <button class="btn btn-start" onclick="closeHowTo()">Let's go! 🌟</button>
+  </div>
 </div>
 
 <!-- ════════ CRITTER COLLECTION ════════ -->
@@ -865,6 +916,15 @@ function closeDex() {
   document.getElementById('title-screen').classList.remove('hidden');
   updateTitleStats();
 }
+// ── how to play ──
+function openHowTo() {
+  document.getElementById('howto-overlay').classList.remove('hidden');
+}
+function closeHowTo() {
+  document.getElementById('howto-overlay').classList.add('hidden');
+  lsSet('readlings-seen-howto', '1');
+}
+
 function goHome() {
   document.getElementById('confetti').innerHTML = '';
   document.getElementById('win-screen').classList.add('hidden');
@@ -879,6 +939,8 @@ function goHome() {
   document.body.className = 'theme-'+c.theme;
   document.getElementById('title-preview').innerHTML = c.getSVG(4,false);
   updateTitleStats();
+  // first-time visitors see the instructions automatically
+  if (!lsGet('readlings-seen-howto')) openHowTo();
 })();
 
 function startGame() {
