@@ -35,9 +35,13 @@ body {
   justify-content: center;
   overflow: hidden;
   transition: background 1.2s;
-  padding: 10px;
+  /* respect notches and home indicators on iOS */
+  padding: calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
+           calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
   touch-action: manipulation; /* no double-tap zoom for little fingers */
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .theme-fire,
@@ -47,10 +51,12 @@ body {
 .theme-fairy,
 .theme-ice,
 .theme-psychic,
-.theme-flower  { background: linear-gradient(160deg, #ffcce0 0%, #ff85b3 45%, #ff4da6 100%); }
+.theme-flower,
+.theme-cloud,
+.theme-candy  { background: linear-gradient(160deg, #ffcce0 0%, #ff85b3 45%, #ff4da6 100%); }
 
 /* ── screens ── */
-#title-screen, #win-screen, #dex-screen {
+#title-screen, #win-screen, #dex-screen, #parent-screen {
   text-align: center;
   background: rgba(255,255,255,0.28);
   border-radius: 32px;
@@ -188,9 +194,9 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
   color: #2c3e50;
   box-shadow: 0 8px 24px rgba(0,0,0,.2), 0 3px 0 rgba(0,0,0,.12);
   letter-spacing: 6px;
-  text-transform: lowercase;
   animation: wordPop .45s cubic-bezier(.175,.885,.32,1.275) both;
 }
+.word-card.long { font-size: clamp(2em,7vw,3em); letter-spacing: 4px; }
 @keyframes wordPop {
   0%  { transform: scale(0) rotate(-12deg); opacity: 0; }
   100%{ transform: scale(1) rotate(0deg);   opacity: 1; }
@@ -312,6 +318,36 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
 .howto-foot { text-align:center; margin:18px 0 16px; font-size:1.12em; color:#2c3e50; }
 .howto-card .btn-start { display:block; margin:0 auto; font-size:1.3em; padding:14px 44px; }
 .btn-help { background:#16a085; color:white; }
+.btn-parent { background:#5f6caf; color:white; }
+
+/* ── parental gate ── */
+.gate-q { font-size:2em; font-weight:bold; color:#2c3e50; margin:8px 0 14px; }
+.gate-input {
+  font-family:inherit; font-size:1.6em; font-weight:bold; text-align:center;
+  width:130px; padding:8px 12px; border:3px solid #fd79a8; border-radius:16px; color:#2c3e50;
+}
+
+/* ── parent dashboard ── */
+.psec { text-align:left; margin-bottom:14px; }
+.psec h3 { color:white; font-size:1.02em; text-shadow:1px 1px 0 rgba(0,0,0,.2); margin-bottom:8px; }
+.pwords { display:flex; flex-wrap:wrap; gap:6px; max-height:150px; overflow-y:auto; }
+.wchip {
+  background:white; color:#2c3e50; border-radius:50px; padding:4px 12px;
+  font-size:.92em; font-weight:bold;
+}
+.wchip small { color:#8395a7; font-weight:normal; }
+.pempty { color:rgba(255,255,255,.85); font-size:.9em; font-style:italic; }
+#parentLists { max-height:52vh; overflow-y:auto; }
+
+/* ── accessibility ── */
+button:focus-visible, input:focus-visible { outline:3px solid white; outline-offset:3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
 
 .hidden { display:none !important; }
 </style>
@@ -324,17 +360,40 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
   <h1>✨ Readlings ✨</h1>
   <p class="subtitle">Read words, grow your Readling, and evolve!</p>
   <div id="title-preview" style="display:flex;justify-content:center;margin:18px 0 22px;"></div>
-  <div class="level-row">
-    <button class="level-pill" data-level="tiny"  onclick="setLevel('tiny')">Tiny words</button>
-    <button class="level-pill" data-level="short" onclick="setLevel('short')">Short words</button>
-    <button class="level-pill" data-level="mix"   onclick="setLevel('mix')">Mix it up!</button>
+  <div class="level-row" role="radiogroup" aria-label="Difficulty level">
+    <button class="level-pill" data-level="critter"  onclick="setLevel('critter')">🐣 Critter</button>
+    <button class="level-pill" data-level="readling" onclick="setLevel('readling')">🐾 Readling</button>
+    <button class="level-pill" data-level="reader"   onclick="setLevel('reader')">📚 Reader</button>
   </div>
   <button class="btn btn-start" onclick="startGame()">🌟 Let's Play! 🌟</button>
   <div class="title-stats" id="titleStats"></div>
   <div class="btn-row" style="margin-top:8px;">
     <button class="btn btn-help" onclick="openHowTo()">❓ How to Play</button>
     <button class="btn btn-dex" onclick="openDex()">📖 My Readlings</button>
+    <button class="btn btn-parent" onclick="openGate()">👪 Grown-Ups</button>
   </div>
+</div>
+
+<!-- ════════ PARENTAL GATE ════════ -->
+<div id="gate-overlay" class="overlay hidden" onclick="if(event.target===this)closeGate()">
+  <div class="howto-card" style="max-width:340px;text-align:center;">
+    <h2>👪 Grown-Ups Only</h2>
+    <p class="howto-lead">To see reading progress, solve:</p>
+    <div class="gate-q" id="gateQ">12 + 34 = ?</div>
+    <input id="gateA" type="number" inputmode="numeric" class="gate-input" aria-label="Type the answer">
+    <div class="btn-row" style="margin-top:16px;">
+      <button class="btn btn-ok" onclick="checkGate()">Enter</button>
+      <button class="btn btn-retry" onclick="closeGate()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PARENT DASHBOARD ════════ -->
+<div id="parent-screen" class="hidden">
+  <h1>📊 Reading Progress</h1>
+  <p class="subtitle" id="parentSummary"></p>
+  <div id="parentLists"></div>
+  <button class="btn btn-again" onclick="closeParent()">⬅️ Back</button>
 </div>
 
 <!-- ════════ HOW TO PLAY ════════ -->
@@ -380,11 +439,11 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
     <div class="action-overlay" id="aov"></div>
   </div>
 
-  <div class="action-txt" id="actTxt"></div>
+  <div class="action-txt" id="actTxt" aria-live="polite"></div>
 
   <div class="word-row">
-    <div class="word-card" id="wcard">the</div>
-    <button class="speak-btn" onclick="speakWord()" title="Hear the word">🔊</button>
+    <div class="word-card" id="wcard" aria-live="polite">the</div>
+    <button class="speak-btn" onclick="speakWord()" title="Hear the word" aria-label="Hear the word read aloud">🔊</button>
   </div>
 
   <div class="fb" id="fb"></div>
@@ -410,25 +469,32 @@ h1 { font-size: clamp(2em,6vw,3em); color: white; text-shadow: 3px 3px 0 rgba(0,
 // ══════════════════════════════════════════
 //  SIGHT WORDS  (pre-primer + primer + CVC)
 // ══════════════════════════════════════════
-const WORDS2 = [
-  'we','go','us','in','an','at','it','is','am','my',
-  'me','do','to','no','so','up','by','he','be','or',
-  'if','of','as','on','hi','ok','oh','ow','ax','ox',
+// Dolch sight-word lists — the standard early-reading curriculum
+const DOLCH_PREPRIMER = [
+  'a','and','away','big','blue','can','come','down','find','for',
+  'funny','go','help','here','I','in','is','it','jump','little',
+  'look','make','me','my','not','one','play','red','run','said',
+  'see','the','three','to','two','up','we','where','yellow','you',
 ];
-const WORDS3 = [
-  'the','and','can','run','cat','dog','hat','big','had',
-  'has','him','his','how','let','new','now','old','one',
-  'our','out','say','she','too','was','who','her','not',
-  'got','hot','hop','top','pop','sit','bit','fit','did',
-  'fun','sun','bun','bug','hug','mug','jug','log','fog',
-  'see','red','two','for','you','put','use','way','bed',
-  'pet','web','cup','map','nap','tap','bat','mat','pan',
-  'fan','van','ran','tan','pin','tin','win','bin','fin',
+const DOLCH_PRIMER = [
+  'all','am','are','at','ate','be','black','brown','but','came',
+  'did','do','eat','four','get','good','have','he','into','like',
+  'must','new','no','now','on','our','out','please','pretty','ran',
+  'ride','saw','say','she','so','soon','that','there','they','this',
+  'too','under','want','was','well','went','what','white','who','will',
+  'with','yes',
+];
+const DOLCH_GRADE1 = [
+  'after','again','an','any','as','ask','by','could','every','fly',
+  'from','give','going','had','has','her','him','his','how','just',
+  'know','let','live','may','of','old','once','open','over','put',
+  'round','some','stop','take','thank','them','then','think','walk','were',
+  'when',
 ];
 const LEVELS = {
-  tiny:  { label:'Tiny words',  words: WORDS2 },
-  short: { label:'Short words', words: WORDS3 },
-  mix:   { label:'Mix it up!',  words: [...WORDS2, ...WORDS3] },
+  critter:  { label:'🐣 Critter',  words: DOLCH_PREPRIMER },
+  readling: { label:'🐾 Readling', words: DOLCH_PRIMER },
+  reader:   { label:'📚 Reader',   words: DOLCH_GRADE1 },
 };
 
 // ══════════════════════════════════════════
@@ -722,74 +788,86 @@ function flowerSVG(stage, evolved) {
   `);
 }
 
+// ─── CLOUD (puffball → rainbow cloud) ─────────────────────────────
+function cloudSVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <path d="M20 124 A80 80 0 0 1 180 124" fill="none" stroke="#ff6b6b" stroke-width="9"/>
+    <path d="M32 124 A68 68 0 0 1 168 124" fill="none" stroke="#ffd93d" stroke-width="9"/>
+    <path d="M44 124 A56 56 0 0 1 156 124" fill="none" stroke="#55efc4" stroke-width="9"/>
+    <path d="M56 124 A44 44 0 0 1 144 124" fill="none" stroke="#74b9ff" stroke-width="9"/>
+    <ellipse cx="100" cy="132" rx="66" ry="40" fill="white"/>
+    <circle cx="55"  cy="120" r="26" fill="white"/>
+    <circle cx="95"  cy="107" r="32" fill="white"/>
+    <circle cx="140" cy="118" r="27" fill="white"/>
+    <text x="38"  y="78" font-size="13">✨</text>
+    <text x="148" y="74" font-size="13">✨</text>
+    ${face(100,126,'#74b9ff',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">☁️</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="126" rx="${46*s}" ry="${30*s}" fill="white"/>
+    <circle cx="68"  cy="112" r="${18*s}" fill="white"/>
+    <circle cx="100" cy="101" r="${22*s}" fill="white"/>
+    <circle cx="132" cy="112" r="${18*s}" fill="white"/>
+    <ellipse cx="100" cy="132" rx="${40*s}" ry="${24*s}" fill="#f3f8ff"/>
+    <text x="100" y="80" font-size="${7+stage}" text-anchor="middle">☁️</text>
+    ${face(100,119,'#74b9ff')}
+  `);
+}
+
+// ─── CANDY (gumdrop → lollipop queen) ─────────────────────────────
+function candySVG(stage, evolved) {
+  if (evolved) return svgWrap(190,190,`
+    <ellipse cx="100" cy="128" rx="62" ry="56" fill="#fd79a8"/>
+    <ellipse cx="100" cy="94"  rx="50" ry="55" fill="#ffd3e5"/>
+    <path d="M56 122 Q100 140 144 122" stroke="white" stroke-width="6" fill="none" opacity=".6"/>
+    <path d="M52 148 Q100 166 148 148" stroke="white" stroke-width="6" fill="none" opacity=".6"/>
+    <polygon points="72,48 80,20 92,42 100,14 108,42 120,20 128,48" fill="#ffd93d" stroke="#f39c12" stroke-width="2"/>
+    <circle cx="80"  cy="20" r="4.5" fill="#ff6b6b"/>
+    <circle cx="100" cy="14" r="4.5" fill="#a29bfe"/>
+    <circle cx="120" cy="20" r="4.5" fill="#55efc4"/>
+    <line x1="164" y1="102" x2="164" y2="168" stroke="white" stroke-width="5"/>
+    <circle cx="164" cy="88" r="17" fill="#ff6b6b"/>
+    <path d="M151 88 A13 13 0 0 1 177 88" fill="none" stroke="white" stroke-width="4"/>
+    ${face(100,92,'#e84393',true)}
+    <text x="100" y="196" font-size="18" text-anchor="middle">🍭</text>
+  `);
+  const s=sc(stage), sz=Math.round(90+stage*12);
+  return svgWrap(sz,sz,`
+    <ellipse cx="100" cy="128" rx="${42*s}" ry="${36*s}" fill="#fd79a8"/>
+    <ellipse cx="100" cy="106" rx="${34*s}" ry="${37*s}" fill="#ffd3e5"/>
+    <path d="M62 124 Q100 140 138 124" stroke="white" stroke-width="5" fill="none" opacity=".65"/>
+    <path d="M60 145 Q100 160 140 145" stroke="white" stroke-width="5" fill="none" opacity=".65"/>
+    <circle cx="100" cy="52" r="${8*s}" fill="#ff6b6b"/>
+    <line x1="100" y1="60" x2="100" y2="72" stroke="white" stroke-width="3"/>
+    <text x="60" y="70" font-size="${6+stage}">🍬</text>
+    ${face(100,102,'#e84393')}
+  `);
+}
+
 // ══════════════════════════════════════════
 //  CREATURE DEFINITIONS
 // ══════════════════════════════════════════
+const ACTIONS = [
+  {txt:'🧁 Ate a cupcake!', anim:'eat'},
+  {txt:'❤️ Got petted!',     anim:'pet'},
+  {txt:'🏋️ Trained hard!',  anim:'train'},
+  {txt:'💤 Took a nap!',     anim:'nap'},
+  {txt:'💗 Is so happy!',    anim:'love'},
+];
+
 const CREATURES = [
-  { name:'Flamey',  theme:'fire',     babyName:'Baby Flamey',   evolvedName:'Flame Dragon',    type:'🔥 Fire',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got petted!',        anim:'pet'},
-      {txt:'🏋️ Lifted weights!',   anim:'train'},
-      {txt:'💤 Took a little nap!', anim:'nap'},
-      {txt:'💗 Is so happy!',       anim:'love'},
-    ], getSVG: fireSVG },
-  { name:'Droplet', theme:'water',   babyName:'Baby Droplet',  evolvedName:'Sea Serpent',     type:'💧 Water',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got cuddled!',       anim:'pet'},
-      {txt:'🏋️ Did some training!', anim:'train'},
-      {txt:'💤 Took a nap!',        anim:'nap'},
-      {txt:'💗 Is so happy!',       anim:'love'},
-    ], getSVG: waterSVG },
-  { name:'Leafy',   theme:'grass',   babyName:'Baby Leafy',    evolvedName:'Forest Guardian', type:'🌿 Grass',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got petted!',        anim:'pet'},
-      {txt:'🏋️ Trained so hard!',  anim:'train'},
-      {txt:'💤 Having a snooze!',   anim:'nap'},
-      {txt:'💗 Is so happy!',       anim:'love'},
-    ], getSVG: grassSVG },
-  { name:'Sparky',  theme:'electric',babyName:'Baby Sparky',   evolvedName:'Thunder Beast',   type:'⚡ Electric',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got petted!',        anim:'pet'},
-      {txt:'🏋️ Lifted weights!',   anim:'train'},
-      {txt:'💤 Taking a nap!',      anim:'nap'},
-      {txt:'💗 Is so happy!',       anim:'love'},
-    ], getSVG: elecSVG },
-  { name:'Moonsy',  theme:'fairy',   babyName:'Baby Moonsy',   evolvedName:'Star Unicorn',    type:'✨ Fairy',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got petted!',        anim:'pet'},
-      {txt:'🏋️ Did some training!', anim:'train'},
-      {txt:'💤 Dreaming away!',     anim:'nap'},
-      {txt:'💗 Is SO happy!',       anim:'love'},
-    ], getSVG: fairySVG },
-  { name:'Frosty',  theme:'ice',     babyName:'Baby Frosty',   evolvedName:'Snow Phoenix',    type:'❄️ Ice',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got petted!',        anim:'pet'},
-      {txt:'🏋️ Trained hard!',     anim:'train'},
-      {txt:'💤 Cozy snooze!',       anim:'nap'},
-      {txt:'💗 Is so happy!',       anim:'love'},
-    ], getSVG: iceSVG },
-  { name:'Starry',  theme:'psychic', babyName:'Baby Starry',   evolvedName:'Cosmic Fox',      type:'🔮 Psychic',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got petted!',        anim:'pet'},
-      {txt:'🏋️ Did some training!', anim:'train'},
-      {txt:'💤 Having a dream!',    anim:'nap'},
-      {txt:'💗 Is so happy!',       anim:'love'},
-    ], getSVG: psychicSVG },
-  { name:'Bloomie', theme:'flower',  babyName:'Baby Bloomie',  evolvedName:'Rainbow Deer',    type:'🌺 Flower',
-    actions:[
-      {txt:'🧁 Ate a cupcake!',    anim:'eat'},
-      {txt:'❤️ Got petted!',        anim:'pet'},
-      {txt:'🏋️ Trained so hard!',  anim:'train'},
-      {txt:'💤 Nap time!',          anim:'nap'},
-      {txt:'💗 Is so happy!',       anim:'love'},
-    ], getSVG: flowerSVG },
+  { name:'Flamey',  theme:'fire',     babyName:'Baby Flamey',  midName:'Flamey',  evolvedName:'Flame Dragon',    type:'🔥 Fire',     getSVG: fireSVG },
+  { name:'Droplet', theme:'water',    babyName:'Baby Droplet', midName:'Droplet', evolvedName:'Sea Serpent',     type:'💧 Water',    getSVG: waterSVG },
+  { name:'Leafy',   theme:'grass',    babyName:'Baby Leafy',   midName:'Leafy',   evolvedName:'Forest Guardian', type:'🌿 Grass',    getSVG: grassSVG },
+  { name:'Sparky',  theme:'electric', babyName:'Baby Sparky',  midName:'Sparky',  evolvedName:'Thunder Beast',   type:'⚡ Electric', getSVG: elecSVG },
+  { name:'Moonsy',  theme:'fairy',    babyName:'Baby Moonsy',  midName:'Moonsy',  evolvedName:'Star Unicorn',    type:'✨ Fairy',    getSVG: fairySVG },
+  { name:'Frosty',  theme:'ice',      babyName:'Baby Frosty',  midName:'Frosty',  evolvedName:'Snow Phoenix',    type:'❄️ Ice',      getSVG: iceSVG },
+  { name:'Starry',  theme:'psychic',  babyName:'Baby Starry',  midName:'Starry',  evolvedName:'Cosmic Fox',      type:'🔮 Psychic',  getSVG: psychicSVG },
+  { name:'Bloomie', theme:'flower',   babyName:'Baby Bloomie', midName:'Bloomie', evolvedName:'Rainbow Deer',    type:'🌺 Flower',   getSVG: flowerSVG },
+  { name:'Puffy',   theme:'cloud',    babyName:'Baby Puffy',   midName:'Puffy',   evolvedName:'Rainbow Cloud',   type:'☁️ Cloud',    getSVG: cloudSVG },
+  { name:'Sweetie', theme:'candy',    babyName:'Baby Sweetie', midName:'Sweetie', evolvedName:'Lollipop Queen',  type:'🍭 Candy',    getSVG: candySVG },
 ];
 
 // ══════════════════════════════════════════
@@ -813,23 +891,35 @@ function persist() {
   lsSet(SAVE_KEY, JSON.stringify(saveData));
 }
 
-// ── difficulty level ──
-let level = lsGet('ca-level') || 'mix';
-if (!LEVELS[level]) level = 'mix';
+// ── difficulty level (old saved values like 'mix' fall back to critter) ──
+let level = lsGet('ca-level') || 'critter';
+if (!LEVELS[level]) level = 'critter';
 function setLevel(l) {
   level = l;
   lsSet('ca-level', l);
   updateTitleStats();
 }
 
-// ── tap-to-hear ──
-function speakWord() {
-  if (!('speechSynthesis' in window)) return;
+// ── tap-to-hear: native AVSpeechSynthesizer in the iOS app, web speech elsewhere ──
+async function speakWord() {
   const w = document.getElementById('wcard').textContent.trim();
   if (!w) return;
+  const tts = window.Capacitor?.Plugins?.TextToSpeech;
+  if (tts) {
+    try {
+      await tts.stop();
+      await tts.speak({ text: w, lang: 'en-US', rate: 0.75, pitch: 1.05, volume: 1.0 });
+      return;
+    } catch {}
+  }
+  if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(w);
   u.rate = 0.7; u.pitch = 1.1; u.lang = 'en-US';
+  const vs = speechSynthesis.getVoices();
+  const best = vs.find(v => /natural|neural|samantha/i.test(v.name) && v.lang.startsWith('en'))
+            || vs.find(v => v.lang === 'en-US');
+  if (best) u.voice = best;
   speechSynthesis.speak(u);
 }
 
@@ -876,6 +966,59 @@ function showActionAnim(type) {
   setTimeout(() => { ov.innerHTML = ''; }, 1700);
 }
 
+// ── mid evolution: crown + golden aura over the baby art (shared 200x200 viewBox) ──
+function midForm(svg) {
+  const extras = `
+    <circle cx="100" cy="110" r="86" fill="none" stroke="#ffd93d" stroke-width="3" stroke-dasharray="7,7" opacity=".6"/>
+    <polygon points="84,34 90,16 98,30 100,12 102,30 110,16 116,34" fill="#ffd93d" stroke="#f39c12" stroke-width="1.5"/>
+    <text x="26" y="46" font-size="13">✨</text>
+    <text x="158" y="40" font-size="13">✨</text>`;
+  return svg.replace('</svg>', extras + '</svg>');
+}
+
+// ── per-word mastery tracking (for the grown-ups dashboard) ──
+function recordWord(w, ok) {
+  if (!w) return;
+  const ws = saveData.words = saveData.words || {};
+  const e = ws[w] = ws[w] || { ok: 0, retry: 0 };
+  if (ok) e.ok++; else e.retry++;
+  persist();
+}
+
+// ── daily streak ──
+function localDay(dt) {
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+}
+function bumpStreak() {
+  const today = localDay(new Date());
+  const yesterday = localDay(new Date(Date.now() - 86400000));
+  const st = saveData.streak = saveData.streak || { last: '', count: 0 };
+  if (st.last === today) return;
+  st.count = (st.last === yesterday) ? st.count + 1 : 1;
+  st.last = today;
+  persist();
+}
+function currentStreak() {
+  const st = saveData.streak || { last: '', count: 0 };
+  const today = localDay(new Date());
+  const yesterday = localDay(new Date(Date.now() - 86400000));
+  return (st.last === today || st.last === yesterday) ? st.count : 0;
+}
+
+// ── native bridges (Capacitor iOS shell; harmless no-ops on the web) ──
+function haptic(style) {
+  try { window.Capacitor?.Plugins?.Haptics?.impact({ style }); } catch {}
+}
+function hapticWin() {
+  try { window.Capacitor?.Plugins?.Haptics?.notification({ type: 'SUCCESS' }); } catch {}
+}
+
+function playEvolve() {
+  const ctx = getCtx(), t = ctx.currentTime;
+  // rising evolution arpeggio: G C E G C6
+  [[392,0],[523,.1],[659,.2],[784,.3],[1047,.44]].forEach(([f,d]) => playTone(f, t+d, 0.42, 0.3, 'triangle', ctx));
+}
+
 function shuffle(a) {
   const b = [...a];
   for (let i=b.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; }
@@ -886,7 +1029,7 @@ function shuffle(a) {
 function updateTitleStats() {
   const n = CREATURES.filter(c => (saveData.evolved[c.name]||0) > 0).length;
   document.getElementById('titleStats').textContent =
-    `⭐ ${saveData.stars} stars earned  ·  🐾 ${n}/${CREATURES.length} critters evolved`;
+    `⭐ ${saveData.stars} stars  ·  🔥 ${currentStreak()}-day streak  ·  🐾 ${n}/${CREATURES.length} evolved`;
   document.querySelectorAll('.level-pill').forEach(b =>
     b.classList.toggle('sel', b.dataset.level === level));
 }
@@ -916,6 +1059,61 @@ function closeDex() {
   document.getElementById('title-screen').classList.remove('hidden');
   updateTitleStats();
 }
+// ── parental gate + grown-ups dashboard ──
+let gateAnswer = 0;
+function openGate() {
+  const a = 11 + Math.floor(Math.random()*15), b = 12 + Math.floor(Math.random()*15);
+  gateAnswer = a + b;
+  document.getElementById('gateQ').textContent = `${a} + ${b} = ?`;
+  document.getElementById('gateA').value = '';
+  document.getElementById('gate-overlay').classList.remove('hidden');
+  document.getElementById('gateA').focus();
+}
+function closeGate() {
+  document.getElementById('gate-overlay').classList.add('hidden');
+}
+function checkGate() {
+  const val = parseInt(document.getElementById('gateA').value, 10);
+  closeGate();
+  if (val === gateAnswer) openParent();
+}
+function openParent() {
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('parent-screen').classList.remove('hidden');
+
+  const ws = saveData.words || {};
+  const need = [], learning = [], mastered = [];
+  Object.entries(ws).forEach(([w, e]) => {
+    if (e.retry > e.ok || e.retry >= 3) need.push([w, e]);
+    else if (e.ok >= 3) mastered.push([w, e]);
+    else learning.push([w, e]);
+  });
+  need.sort((x, y) => y[1].retry - x[1].retry);
+  mastered.sort((x, y) => y[1].ok - x[1].ok);
+  learning.sort((x, y) => x[0].localeCompare(y[0]));
+
+  document.getElementById('parentSummary').textContent =
+    `🔥 ${currentStreak()}-day streak · ⭐ ${saveData.stars} words read · ` +
+    `✅ ${mastered.length} mastered · 📖 ${learning.length} learning · 🎯 ${need.length} to practice`;
+
+  const chip = ([w, e]) =>
+    `<span class="wchip">${w} <small>✅${e.ok}${e.retry ? ' 🔄' + e.retry : ''}</small></span>`;
+  const section = (title, arr, empty) =>
+    `<div class="psec"><h3>${title}</h3><div class="pwords">` +
+    (arr.length ? arr.map(chip).join('') : `<span class="pempty">${empty}</span>`) +
+    `</div></div>`;
+
+  document.getElementById('parentLists').innerHTML =
+    section('🎯 Needs practice', need, 'Nothing yet — great!') +
+    section('📖 Still learning', learning, 'Play a round to start tracking.') +
+    section('✅ Mastered (read right 3+ times)', mastered, 'Mastered words will appear here.');
+}
+function closeParent() {
+  document.getElementById('parent-screen').classList.add('hidden');
+  document.getElementById('title-screen').classList.remove('hidden');
+  updateTitleStats();
+}
+
 // ── how to play ──
 function openHowTo() {
   document.getElementById('howto-overlay').classList.remove('hidden');
@@ -969,19 +1167,22 @@ function startGame() {
 }
 
 function updateHUD() {
-  document.getElementById('badge').textContent = `${creature.type}: ${creature.babyName}`;
+  const shownName = correct >= 5 ? creature.midName + ' ✨' : creature.babyName;
+  document.getElementById('badge').textContent = `${creature.type}: ${shownName}`;
   document.getElementById('prog').style.width = (correct/10*100)+'%';
   if (correct>2) document.getElementById('prog').textContent = correct+'/10';
   else document.getElementById('prog').textContent = '';
 
-  const labels = ['Baby form 🥚','Growing up! 🌱','Getting bigger! 🌿','Almost there! 🌟'];
-  const li = correct===0 ? 0 : correct<4 ? 1 : correct<8 ? 2 : 3;
+  const labels = ['Baby form 🥚','Growing up! 🌱','Evolved once! ✨','Final form soon! 🌟'];
+  const li = correct<3 ? 0 : correct<5 ? 1 : correct<8 ? 2 : 3;
   document.getElementById('lvl').textContent = labels[li];
 }
 
 function drawCreature(bounce=false) {
   const cw = document.getElementById('cw');
-  document.getElementById('creature-svg').innerHTML = creature.getSVG(correct, false);
+  let svg = creature.getSVG(correct, false);
+  if (correct >= 5) svg = midForm(svg);
+  document.getElementById('creature-svg').innerHTML = svg;
   if (bounce) {
     const svg = cw.querySelector('svg');
     svg.style.animation = 'none';
@@ -995,15 +1196,17 @@ function drawCreature(bounce=false) {
 function nextWord() {
   if (wordIdx >= words.length) { words = shuffle(LEVELS[level].words); wordIdx = 0; }
   const card = document.getElementById('wcard');
+  const w = words[wordIdx];
   card.className = 'word-card';
-  card.textContent = words[wordIdx];
+  card.textContent = w;
   void card.offsetWidth;
-  card.className = 'word-card';
+  card.className = 'word-card' + (w.length > 4 ? ' long' : '');
   document.getElementById('actTxt').textContent = '';
   document.getElementById('fb').innerHTML = '';
 }
 
 function gotIt() {
+  const word = words[wordIdx];
   correct++;
   wordIdx++;
 
@@ -1012,19 +1215,27 @@ function gotIt() {
   if (star) { star.classList.add('on'); }
 
   saveData.stars++;
+  recordWord(word, true);
   persist();
 
   updateHUD();
 
   playGotIt();
+  haptic('MEDIUM');
 
   if (correct >= 10) { setTimeout(showWin, 600); return; }
 
-  // action text + animation
-  const a = creature.actions;
-  const act = a[(correct-1) % a.length];
-  document.getElementById('actTxt').textContent = act.txt;
-  showActionAnim(act.anim);
+  // action text + animation (with a special moment at the first evolution)
+  if (correct === 5) {
+    playEvolve();
+    hapticWin();
+    document.getElementById('actTxt').textContent = `✨ Evolved into ${creature.midName}! ✨`;
+    showActionAnim('love');
+  } else {
+    const act = ACTIONS[(correct-1) % ACTIONS.length];
+    document.getElementById('actTxt').textContent = act.txt;
+    showActionAnim(act.anim);
+  }
 
   // floating hearts
   const fb = document.getElementById('fb');
@@ -1036,6 +1247,7 @@ function gotIt() {
 }
 
 function tryAgain() {
+  recordWord(words[wordIdx], false);
   const encs = ['You got this! 💪','Look again! 🌟','Almost! 🎯','Try once more! 💫','So close! ✨'];
   document.getElementById('actTxt').textContent = encs[Math.floor(Math.random()*encs.length)];
   const card = document.getElementById('wcard');
@@ -1046,8 +1258,10 @@ function tryAgain() {
 
 function showWin() {
   saveData.evolved[creature.name] = (saveData.evolved[creature.name] || 0) + 1;
+  bumpStreak();
   persist();
   playWin();
+  hapticWin();
   document.getElementById('game-screen').classList.add('hidden');
   document.getElementById('win-screen').classList.remove('hidden');
 
@@ -1055,13 +1269,15 @@ function showWin() {
   wc.innerHTML = creature.getSVG(10, true);
   wc.style.animation = 'none'; void wc.offsetWidth; wc.style.animation = 'evolveAnim 0.9s cubic-bezier(.175,.885,.32,1.275) both';
 
+  const sn = currentStreak();
   document.getElementById('winMsg').textContent =
-    `${creature.babyName} evolved into\n${creature.evolvedName}! 🎉\n\nYou are an AMAZING reader! 📚⭐`;
+    `${creature.midName} evolved into\n${creature.evolvedName}! 🎉\n\n🔥 ${sn}-day reading streak!\nYou are an AMAZING reader! 📚⭐`;
 
   confetti();
 }
 
 function confetti() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const c = document.getElementById('confetti');
   const colors=['#ff6b6b','#ffd93d','#6bcb77','#74b9ff','#a29bfe','#fd79a8','#fdcb6e','#55efc4','#ff9f9f'];
   for (let i=0;i<90;i++) {
@@ -1084,6 +1300,11 @@ function resetGame() {
   document.getElementById('confetti').innerHTML = '';
   startGame();
 }
+
+// submit the parental gate with the keyboard too
+document.getElementById('gateA').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') checkGate();
+});
 
 // ── register service worker for offline + installability ──
 if ('serviceWorker' in navigator) {
