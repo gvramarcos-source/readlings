@@ -39,6 +39,30 @@ The site is plain static files, so any static host works. For GitHub Pages:
 
 Alternative one-step host: drag this folder onto **app.netlify.com/drop** for an instant URL.
 
+## 📱 Android app (Capacitor)
+
+The `android/` folder is a complete native Android project that wraps the same `index.html`.
+It adds native text-to-speech (better voices) and haptic feedback.
+
+**One-time setup on a new machine:** install Node.js, Microsoft OpenJDK 21, and the Android
+SDK (platform 36 + build-tools; `ANDROID_HOME` should point at the SDK folder).
+
+**Build an APK you can install on any Android device:**
+
+```powershell
+npm install          # once
+npm run sync         # copies web files into the native project
+cd android
+.\gradlew assembleDebug
+# APK appears at: android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+Copy that APK to a phone/tablet and open it to install (allow "install unknown apps" when asked).
+
+**For the Play Store** you need a signed release bundle instead:
+`.\gradlew bundleRelease` plus a signing key — see Google's "Sign your app" docs, and a
+one-time $25 Google Play developer account.
+
 ## 🔁 Updating after launch
 
 1. Edit `index.html` (everything lives there).

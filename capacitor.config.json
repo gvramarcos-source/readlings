@@ -1,0 +1,9 @@
+{
+  "appId": "com.readlings.app",
+  "appName": "Readlings",
+  "webDir": "www",
+  "backgroundColor": "#ff85b3",
+  "android": {
+    "allowMixedContent": false
+  }
+}
