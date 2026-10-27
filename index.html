@@ -492,7 +492,8 @@ const DOLCH_GRADE1 = [
   'when',
 ];
 const LEVELS = {
-  critter:  { label:'🐣 Critter',  words: DOLCH_PREPRIMER },
+  // Critter is strictly 1–3 letter sight words, pooled from every Dolch list
+  critter:  { label:'🐣 Critter',  words: [...new Set([...DOLCH_PREPRIMER, ...DOLCH_PRIMER, ...DOLCH_GRADE1])].filter(w => w.length <= 3) },
   readling: { label:'🐾 Readling', words: DOLCH_PRIMER },
   reader:   { label:'📚 Reader',   words: DOLCH_GRADE1 },
 };
